@@ -50,103 +50,6 @@ namespace ecto
 
   namespace py
   {
-//    struct cellwrap: cell, bp::wrapper<cell>
-//    {
-//      cellwrap():cell(cell_factory_<cellwrap>::instance()),initialized_(false){}
-//
-//      void start()
-//      {
-//        ecto::py::scoped_call_back_to_python scb;
-//        if (bp::override pystart = this->get_override("start"))
-//          pystart();
-//      }
-//
-//      void stop()
-//      {
-//        ecto::py::scoped_call_back_to_python scb;
-//        if (bp::override pystop = this->get_override("stop"))
-//          pystop();
-//      }
-//
-//      void declare_params(tendrils& params)
-//      {
-//        ecto::py::scoped_call_back_to_python scb;
-//        if (bp::override init = this->get_override("declare_params"))
-//          init(boost::ref(params));
-//      }
-//
-//      void dispatch_declare_io(const tendrils&params, tendrils& inputs, tendrils& outputs)
-//      {
-//        ecto::py::scoped_call_back_to_python scb;
-//        if (bp::override declare_io = this->get_override("declare_io"))
-//          declare_io(boost::ref(params), boost::ref(inputs), boost::ref(outputs));
-//      }
-//
-//      void dispatch_configure(const tendrils& params, const tendrils& inputs, const tendrils& outputs)
-//      {
-//        ecto::py::scoped_call_back_to_python scb;
-//        if (bp::override config = this->get_override("configure"))
-//          config(boost::ref(params));
-//      }
-//
-//      struct YouveBeenServed
-//      {
-//        void operator()(const tendrils::value_type& t)
-//        {
-//          t.second->notify();
-//        }
-//      };
-//
-//      ReturnCode dispatch_process(const tendrils& inputs, const tendrils& outputs)
-//      {
-//        ecto::py::scoped_call_back_to_python scb;
-//        int value = OK;
-//        std::for_each(inputs.begin(),inputs.end(), YouveBeenServed());
-//        if (bp::override proc = this->get_override("process"))
-//          {
-//            value = proc(boost::ref(inputs), boost::ref(outputs));
-//          }
-//        std::for_each(outputs.begin(),outputs.end(),YouveBeenServed());
-//        return ReturnCode(value);
-//      }
-//
-//      bool init()
-//      {
-//        bool initialized = initialized_;
-//        initialized_ = false;
-//        return initialized;
-//      }
-//
-//      std::string dispatch_name() const
-//      {
-//        bp::reference_existing_object::apply<cellwrap*>::type converter;
-//        PyObject* obj = converter(this);
-//        bp::object real_obj = bp::object(bp::handle<>(obj));
-//        bp::object n = real_obj.attr("__class__").attr("__name__");
-//        std::string nm = bp::extract<std::string>(n);
-//        return nm;
-//      }
-//
-//      static std::string doc(cellwrap* mod)
-//      {
-//        bp::reference_existing_object::apply<cellwrap*>::type converter;
-//        PyObject* obj = converter(mod);
-//        bp::object real_obj = bp::object(bp::handle<>(obj));
-//        bp::object n = real_obj.attr("__class__").attr("__doc__");
-//        bp::extract<std::string> get_str(n);
-//        if (get_str.check())
-//          return get_str();
-//        return "No Doc str.";
-//      }
-//
-//      cell_ptr dispatch_clone() const
-//      {
-//        throw std::logic_error("Clone is not implemented!");
-//        return cell_ptr();
-//      }
-//      bool initialized_;
-//    };
-
     std::string type_name(const cell& c)
     {
       return c.type();
@@ -166,9 +69,6 @@ namespace ecto
 
     void wrapCell()
     {
-      //;
-      //bp::class_<cellwrap, boost::shared_ptr<cellwrap>, boost::noncopyable> ("_cell_base" /*bp::no_init*/)
-
       //use private names so that python people know these are internal
       bp::class_<cell, boost::shared_ptr<cell>, boost::noncopyable>("_cell_cpp", bp::no_init)
         .def("type", type_name)
