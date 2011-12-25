@@ -104,7 +104,7 @@ TEST(Strands, Crashy_is_ECTO_THREAD_UNSAFE)
 {
   ecto::plasm::ptr p(new ecto::plasm);
   for (unsigned j=0; j<10; ++j) {
-    ecto::cell::ptr m(new cell_<Crashy>);
+    ecto::cell::ptr m(cell_factory_<Crashy>::create());
     p->insert(m);
   }
 
@@ -166,7 +166,7 @@ TEST(Strands, ConcurrencyCount)
 {
   ecto::plasm::ptr p(new ecto::plasm);
   for (unsigned j=0; j<10; ++j) {
-    ecto::cell::ptr m(new cell_<NotCrashy>);
+    ecto::cell::ptr m(cell_factory_<NotCrashy>::create());
     p->insert(m);
   }
 

@@ -221,7 +221,7 @@ struct SporeCellConst
 
 TEST(SporeTest, Semantics)
 {
-  cell::ptr c1(new cell_<SporeCellConst>);
+  cell::ptr c1(cell_factory_<SporeCellConst>::create());
   c1->declare_params();
   c1->declare_io();
   c1->configure();

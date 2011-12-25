@@ -94,15 +94,15 @@ namespace ecto
     cell::ptr
     create_black_box(plasm::ptr plasm, int niter, const tendrils& p, const tendrils& i, const tendrils& o)
     {
-      cell_<BlackBox>::ptr black_box(new cell_<BlackBox>);
-      cell::ptr base(black_box);
+      cell::ptr base( cell_factory_<BlackBox>::create());
       BlackBox::shallow_merge(p, base->parameters);
       BlackBox::shallow_merge(i, base->inputs);
       BlackBox::shallow_merge(o, base->outputs);
       base->configure(); //This causes the impl to be created
-      black_box->impl->plasm_ = plasm; //initialize a few thangs
-      black_box->impl->niter_ = niter;
-      return black_box;
+      boost::shared_ptr<BlackBox> black_box = cell_factory_<BlackBox>::extract(*base);
+      black_box->plasm_ = plasm; //initialize a few thangs
+      black_box->niter_ = niter;
+      return base;
     }
   }
 }

@@ -49,8 +49,8 @@ namespace ecto
                  const std::string& sink_name = "EntangledSink")
   {
     bp::tuple p;
-    cell::ptr source(new cell_<EtherSource>), 
-      sink(new cell_<EtherSink>);
+    cell::ptr source(cell_factory_<EtherSource>::instance()->create());
+    cell::ptr sink(cell_factory_<EtherSink>::instance()->create());
 
     source->declare_params();
     source->declare_io();

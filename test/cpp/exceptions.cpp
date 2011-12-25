@@ -116,13 +116,13 @@ struct ParameterCBExcept
   }
   void xcb(double x)
   {
-    std::cout << "*** about to throw std::runtime_error ***" << std::endl;
+    //std::cout << "*** about to throw std::runtime_error ***" << std::endl;
     throw std::runtime_error("I'm a bad callback, and I like it that way.");
   }
   void
   configure(const tendrils& p,const tendrils& in, const tendrils& out)
   {
-    std::cout << "configurated ***" << std::endl;
+    //std::cout << "configurated ***" << std::endl;
     spore<double> x = p["x"];
     x.set_callback(boost::bind(&ParameterCBExcept::xcb,this,_1));
   }
@@ -142,11 +142,11 @@ TEST(Exceptions, ExceptionalModules)
 {
   try
   {
-    cell* p = new cell_<ExceptionalModule1>;
+    cell_ptr p = cell_factory_<ExceptionalModule1>::create();
     p->declare_params();
   } catch (except::EctoException& e)
   {
-    std::cout << "Good, threw an exception:\n" << e.what() << std::endl;
+    //std::cout << "Good, threw an exception:\n" << e.what() << std::endl;
   }
 }
 
@@ -154,12 +154,12 @@ TEST(Exceptions, ExceptionUnknownException)
 {
   try
   {
-    cell* c = new cell_<ExceptionUnknownException>;
+    cell_ptr c = cell_factory_<ExceptionUnknownException>::create();
     c->declare_params();
     c->declare_io();
   } catch (except::EctoException& e)
   {
-    std::cout << "Good, threw an exception:\n" << e.what() << std::endl;
+    //std::cout << "Good, threw an exception:\n" << e.what() << std::endl;
   }
 }
 
@@ -171,7 +171,7 @@ TEST(Exceptions, ProcessException)
     "  What   : A standard exception\n"
     "  Module : ProcessException\n"
     "  Function: process");
-  cell::ptr m(new cell_<ProcessException>);
+  cell::ptr m(cell_factory_<ProcessException>::create());
   EXPECT_THROW(
       try
       {
@@ -179,8 +179,8 @@ TEST(Exceptions, ProcessException)
       }
       catch (except::EctoException& e)
       {
-        std::cout << "Good, threw an exception:\n" << e.what() << std::endl;
-        std::cout << diagnostic_information(e) << "\n";
+        //std::cout << "Good, threw an exception:\n" << e.what() << std::endl;
+        //std::cout << diagnostic_information(e) << "\n";
         /*
         if(stre != e.msg_)
         {
@@ -202,14 +202,14 @@ TEST(Exceptions, NotExist)
              "  Module : NotExist\n"
              "  Function: process");
 
-  cell::ptr m(new cell_<NotExist>);
+  cell::ptr m(cell_factory_<NotExist>::create());
   try
     {
       m->process();
     }
   catch (except::NonExistant& e)
     {
-      std::cout << "Good, threw an exception:\n" << e.what() << std::endl;
+      //std::cout << "Good, threw an exception:\n" << e.what() << std::endl;
       //EXPECT_EQ(stre, e.msg_);
     }
 }
@@ -220,7 +220,7 @@ TEST(Exceptions, WrongType)
 "  Hint : 'd' is of type double\n"
 "  Module : WrongType\n"
 "  Function: process");
-  cell::ptr m(new cell_<WrongType>);
+  cell::ptr m(cell_factory_<WrongType>::create());
   m->declare_params();
   m->declare_io();
   bool threw = false;
@@ -230,7 +230,7 @@ TEST(Exceptions, WrongType)
     }
   catch (except::TypeMismatch& e)
     {
-      std::cout << "Good, threw an exception:\n" << e.what() << std::endl;
+     // std::cout << "Good, threw an exception:\n" << e.what() << std::endl;
       //      EXPECT_EQ(stre, e.msg_);
       threw = true;
     }
@@ -242,7 +242,7 @@ TEST(Exceptions, WrongType_sched)
   for (unsigned j=0; j<100; ++j) {
     Py_Finalize();
 
-    cell::ptr m(new cell_<WrongType>);
+    cell::ptr m(cell_factory_<WrongType>::create());
     m->declare_params();
     m->declare_io();
     plasm::ptr p(new plasm);
@@ -256,7 +256,7 @@ TEST(Exceptions, WrongType_sched)
       }
     catch (except::TypeMismatch& e)
       {
-        std::cout << "Good, threw an exception:\n" << e.what() << std::endl;
+        //std::cout << "Good, threw an exception:\n" << e.what() << std::endl;
         threw = true;
       }
     EXPECT_TRUE(threw);
@@ -267,7 +267,7 @@ TEST(Exceptions, WrongType_sched)
 TEST(Exceptions, ParameterCBExcept_sched)
 {
   Py_Finalize();
-  cell::ptr m(new cell_<ParameterCBExcept>);
+  cell::ptr m(cell_factory_<ParameterCBExcept>::create());
   m->declare_params();
   m->declare_io();
   m->parameters["x"] << 5.1;
@@ -282,14 +282,14 @@ TEST(Exceptions, ParameterCBExcept_sched)
     }
   catch (except::EctoException& e)
     {
-      std::cout << "Good, threw an exception:\n" << ecto::except::diagnostic_string(e) << std::endl;
+      //std::cout << "Good, threw an exception:\n" << ecto::except::diagnostic_string(e) << std::endl;
     }
   Py_Initialize();
 }
 
 TEST(Exceptions, ConstructorExcept)
 {
-  cell::ptr m(new cell_<InConstructorExcept>);
+  cell::ptr m(cell_factory_<InConstructorExcept>::create());
   m->declare_params();
   m->declare_io();
   plasm::ptr p(new plasm);
@@ -302,9 +302,9 @@ TEST(Exceptions, ConstructorExcept)
     }
   catch (except::EctoException& e)
     {
-      std::cout << "Good, threw an exception:\n"
-                << ecto::except::diagnostic_string(e)
-                << std::endl;
+//      std::cout << "Good, threw an exception:\n"
+//                << ecto::except::diagnostic_string(e)
+//                << std::endl;
       const std::string* what = boost::get_error_info<ecto::except::what>(e);
       EXPECT_TRUE(what);
       EXPECT_EQ(*what, std::string("no.... I do not want to live."));

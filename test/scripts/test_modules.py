@@ -125,7 +125,7 @@ def too_many_positionalargs(_):
 
 def type_and_instance_names():
     m = ecto_test.Generate()
-    name = m.name()
+    name = m.type_name()
     print "name is:", name
     assert name.startswith("ecto_test::Generate<double>")
 

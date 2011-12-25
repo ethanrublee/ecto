@@ -40,7 +40,7 @@ namespace ecto {
     void wrapTendrils();
     void wrapConnection();
     void wrapPlasm();
-    void wrapModule();
+    void wrapCell();
     void wrapRegistry();
     void wrapSchedulers();
     void wrapStrand();
@@ -100,7 +100,7 @@ BOOST_PYTHON_MODULE(ecto)
 
   ecto::py::wrapConnection();
   ecto::py::wrapPlasm();
-  ecto::py::wrapModule();
+  ecto::py::wrapCell();
   ecto::py::wrapRegistry();
   ecto::py::wrapTendrils();
   ecto::py::wrapSchedulers();

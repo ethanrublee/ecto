@@ -25,9 +25,9 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 # 
-from ecto import _cell_base
+from ecto import _cell_cpp
 
-class Cell(_cell_base):
+class Cell():
     __looks_like_a_cell__ = True
     def __getattr__(self, name):
         if name == '__impl':
@@ -36,18 +36,19 @@ class Cell(_cell_base):
             return self.__dict__[name]
 
     def __init__(self, **kwargs):
-        _cell_base.__init__(self)
-
-        _cell_base.declare_params(self)
-
-        for k, v in kwargs.iteritems():
-            self.params.at(k).set(v)
-        self.params.notify()
-        _cell_base.declare_io(self)
-        _cell_base.configure(self)
-        if self.__doc__ is None:
-            self.__doc__ = "TODO docstr me."
-        self.__doc__ = self.gen_doc(self.__doc__)
+        pass
+#        _impl = 
+#
+#        _cell_cpp.declare_params(self)
+#
+#        for k, v in kwargs.iteritems():
+#            self.params.at(k).set(v)
+#        self.params.notify()
+#        _cell_cpp.declare_io(self)
+#        _cell_cpp.configure(self)
+#        if self.__doc__ is None:
+#            self.__doc__ = "TODO docstr me."
+#        self.__doc__ = self.gen_doc(self.__doc__)
 
     @classmethod
     def inspect(cls,_args,_kwargs):

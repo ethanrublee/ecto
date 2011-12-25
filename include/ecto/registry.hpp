@@ -45,23 +45,7 @@ namespace ecto {
 
   namespace registry {
 
-    typedef boost::shared_ptr<cell>(*factory_fn_t)();
-    typedef void (*declare_params_t)(ecto::tendrils&);
-    typedef void (*declare_io_t)(const ecto::tendrils&, ecto::tendrils&, 
-                                 ecto::tendrils&);
-
-    struct entry_t {
-      factory_fn_t construct;
-      declare_params_t declare_params;
-      declare_io_t declare_io;
-
-      boost::shared_ptr<cell> construct_() { return construct(); }
-      void declare_params_(ecto::tendrils& t) { declare_params(t); }
-      void declare_io_(const ecto::tendrils& p, ecto::tendrils& i, ecto::tendrils& o) 
-      { 
-        declare_io(p, i, o); 
-      }
-    };
+    typedef const cell_factory* entry_t;
 
     template <typename ModuleTag>
     struct module_registry : boost::noncopyable
@@ -98,24 +82,19 @@ namespace ecto {
       const char* name_;
       const char* docstring_;
 
-      typedef ::ecto::cell_<T> cell_t;
+      typedef ::ecto::cell_factory_<T> cell_f;
 
-      static boost::shared_ptr<cell> create()
-      {
-        return boost::shared_ptr<cell>(new cell_t);
-      }
-
-      explicit registrator(const char* name, const char* docstring) 
+      registrator(const char* name, const char* docstring)
         : name_(name), docstring_(docstring) 
       { 
         // this fires the construction of proper python classes at import time
         module_registry<Module>::instance().add(boost::ref(*this));
 
         // this registers the functions needed to do the construction above
-        entry_t e;
-        e.construct = &create;// ecto::create_cell<T>;
-        e.declare_params = (void (*)(tendrils&)) &cell_t::declare_params;
-        e.declare_io = (void (*)(const tendrils&, tendrils&, tendrils&)) &cell_t::declare_io;
+        entry_t e = cell_f::instance();
+        const cell_f* te = dynamic_cast<const cell_f*>(e);
+        te->name_ = name;
+        te->docstring_ = docstring;
         register_factory_fn(name_of<T>(), e);
       }
 

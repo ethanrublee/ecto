@@ -38,8 +38,6 @@
 #include <boost/preprocessor/stringize.hpp>
 #include <boost/preprocessor/seq/for_each.hpp>
 
-
-
 /*
  * Catch all and pass on exception.
  */
@@ -104,12 +102,16 @@ namespace ecto
   const std::string&
   ReturnCodeToStr(int rval)
   {
-    switch(rval)
+    switch (rval)
     {
 #define RETURN_NAME(r, data, NAME)                                    \
 case ecto::NAME: {static std::string x = BOOST_PP_STRINGIZE(ecto::NAME); return x;}
       BOOST_PP_SEQ_FOR_EACH(RETURN_NAME, ~, ECTO_RETURN_VALUES)
-      default:{ static std::string r = "Unknown return value."; return r;}
+      default:
+      {
+        static std::string r = "Unknown return value.";
+        return r;
+      }
     }
   }
 
@@ -118,41 +120,52 @@ case ecto::NAME: {static std::string x = BOOST_PP_STRINGIZE(ecto::NAME); return 
   {
     std::string p_type, i_type, o_type, msg;
     bool in_p = m.parameters.find(key) != m.parameters.end();
-    if(in_p) p_type = m.parameters.find(key)->second->type_name();
+    if (in_p)
+      p_type = m.parameters.find(key)->second->type_name();
 
     bool in_i = m.inputs.find(key) != m.inputs.end();
-    if(in_i) i_type = m.inputs.find(key)->second->type_name();
+    if (in_i)
+      i_type = m.inputs.find(key)->second->type_name();
 
     bool in_o = m.outputs.find(key) != m.outputs.end();
-    if(in_o) o_type = m.outputs.find(key)->second->type_name();
+    if (in_o)
+      o_type = m.outputs.find(key)->second->type_name();
 
     if (in_p || in_i || in_o)
-      return "\n  Hint   : '" + key + "' does exist in " + (in_p ? "parameters (type == " +p_type +") " : "") + (in_i ? "inputs (type == " +i_type +") "  : "")
-          + (in_o ? "outputs (type == " +o_type +")" : "");
+      return "\n  Hint   : '" + key + "' does exist in " + (in_p ? "parameters (type == " + p_type + ") " : "")
+             + (in_i ? "inputs (type == " + i_type + ") " : "")
+             + (in_o ? "outputs (type == " + o_type + ")" : "");
     else
       return "  Hint   : '" + key + "' does not exist in module.";
   }
 
-  void sample_siggy(cell& c, unsigned firing)
+  boost::shared_ptr<cell>
+  cell_factory::create() const
   {
-    ECTO_LOG_DEBUG("sample_siggy(%s, %u)", c.name() % firing);
+    cell_ptr cp(new cell(this));
+    return cp;
   }
 
-  cell::cell()
-  : configured(false)
-  , tick_(0)
+  cell_factory::~cell_factory()
   {
-    //    bsig_process.connect(&sample_siggy);
   }
 
-  cell::~cell() { }
+  cell::cell(const cell_factory* factory)
+      :
+        configured(false),
+        tick_(0),
+        factory_(factory)
+  {
+    factory_->populate_static(*this);
+  }
 
   void
   cell::declare_params()
   {
     try
     {
-      dispatch_declare_params(parameters);
+      if (declare_params_)
+        declare_params_(parameters);
     }CATCH_ALL()
   }
 
@@ -161,7 +174,8 @@ case ecto::NAME: {static std::string x = BOOST_PP_STRINGIZE(ecto::NAME); return 
   {
     try
     {
-      dispatch_declare_io(parameters, inputs, outputs);
+      if (declare_io_)
+        declare_io_(parameters, inputs, outputs);
     }CATCH_ALL()
   }
 
@@ -175,15 +189,8 @@ case ecto::NAME: {static std::string x = BOOST_PP_STRINGIZE(ecto::NAME); return 
     init();
     try
     {
-      dispatch_configure(parameters, inputs, outputs);
-
-//      for (tendrils::const_iterator iter = inputs.begin(); iter != inputs.end(); ++iter)
-//        if (iter->second->is_type<boost::python::object>())
-//          BOOST_THROW_EXCEPTION(std::runtime_error("you can't use a python object as an input"));
-//
-//      for (tendrils::const_iterator iter = outputs.begin(); iter != outputs.end(); ++iter)
-//        if (iter->second->is_type<boost::python::object>())
-//          BOOST_THROW_EXCEPTION(std::runtime_error("you can't use a python object as an output"));
+      if (configure_)
+        configure_(parameters, inputs, outputs);
     }CATCH_ALL()
   }
 
@@ -192,16 +199,17 @@ case ecto::NAME: {static std::string x = BOOST_PP_STRINGIZE(ecto::NAME); return 
   {
     ECTO_LOG_DEBUG("*** %s", "notified of start");
     stop_requested(false);
-    dispatch_start();
+    if (start_)
+      start_();
   }
 
   void
   cell::stop()
   {
     ECTO_LOG_DEBUG("*** %s", "notified of stop");
-    dispatch_stop();
+    if (stop_)
+      stop_();
   }
-
 
   ReturnCode
   cell::process()
@@ -223,13 +231,8 @@ case ecto::NAME: {static std::string x = BOOST_PP_STRINGIZE(ecto::NAME); return 
       } catch (const std::exception& e)
       {
         ECTO_TRACE_EXCEPTION("const std::exception& outside of CATCH ALL");
-        BOOST_THROW_EXCEPTION(except::CellException()
-                              << except::type(name_of(typeid(e)))
-                              << except::what(e.what())
-                              << except::cell_name(name())
-                              << except::function_name(__FUNCTION__)
-                              << except::when("While triggering param change callbacks"))
-          ;
+        BOOST_THROW_EXCEPTION(
+            except::CellException() << except::type(name_of(typeid(e))) << except::what(e.what()) << except::cell_name(name()) << except::function_name(__FUNCTION__) << except::when("While triggering param change callbacks"));
       }
       ++begin;
     }
@@ -237,25 +240,27 @@ case ecto::NAME: {static std::string x = BOOST_PP_STRINGIZE(ecto::NAME); return 
     {
       try
       {
-        ReturnCode r;
+        ReturnCode r = OK;
         {
           profile::stats_collector coll(name(), stats);
           bsig_process(*this, true);
-          r = dispatch_process(inputs, outputs);
+          if (process_)
+            r = ReturnCode(process_(inputs, outputs));
         }
         bsig_process(*this, false);
         return r;
-      } catch (const boost::thread_interrupted&) {
+      } catch (const boost::thread_interrupted&)
+      {
         ECTO_TRACE_EXCEPTION("const boost::thread_interrupted&, returning QUIT instead of rethrow");
         return ecto::QUIT;
       }
-    } CATCH_ALL()
+    }CATCH_ALL()
   }
 
-  std::string
+  const std::string&
   cell::type() const
   {
-    return dispatch_name();
+    return factory_->type();
   }
 
   void
@@ -267,19 +272,19 @@ case ecto::NAME: {static std::string x = BOOST_PP_STRINGIZE(ecto::NAME); return 
   std::string
   cell::name() const
   {
-    return instance_name_.size() ? instance_name_ : dispatch_name();
+    return instance_name_.empty() ? factory_->name() : instance_name_;
   }
 
   void
   cell::short_doc(const std::string& short_doc)
   {
-    dispatch_short_doc(short_doc);
+    short_doc_ = short_doc;
   }
 
   std::string
   cell::short_doc() const
   {
-    return dispatch_short_doc();
+    return short_doc_.empty() ? factory_->docstring() : short_doc_;
   }
 
   std::string
@@ -303,8 +308,7 @@ case ecto::NAME: {static std::string x = BOOST_PP_STRINGIZE(ecto::NAME); return 
     {
       if (it->second->required() && !it->second->user_supplied())
       {
-        BOOST_THROW_EXCEPTION(except::ValueRequired()
-                              << except::tendril_key(it->first));
+        BOOST_THROW_EXCEPTION(except::ValueRequired() << except::tendril_key(it->first));
       }
       ++it;
     }
@@ -318,8 +322,7 @@ case ecto::NAME: {static std::string x = BOOST_PP_STRINGIZE(ecto::NAME); return 
     {
       if (it->second->required() && !it->second->user_supplied())
       {
-        BOOST_THROW_EXCEPTION(except::NotConnected()
-                              << except::tendril_key(it->first));
+        BOOST_THROW_EXCEPTION(except::NotConnected() << except::tendril_key(it->first));
       }
       ++it;
     }
@@ -328,11 +331,10 @@ case ecto::NAME: {static std::string x = BOOST_PP_STRINGIZE(ecto::NAME); return 
   cell::ptr
   cell::clone() const
   {
-    cell::ptr cloned = dispatch_clone();
+    cell::ptr cloned = factory_->create();
     cloned->declare_params();
     //copy all of the parameters by value.
-    tendrils::iterator it = cloned->parameters.begin(),
-      end = cloned->parameters.end();
+    tendrils::iterator it = cloned->parameters.begin(), end = cloned->parameters.end();
     tendrils::const_iterator oit = parameters.begin();
     while (it != end)
     {
@@ -344,35 +346,62 @@ case ecto::NAME: {static std::string x = BOOST_PP_STRINGIZE(ecto::NAME); return 
     return cloned;
   }
 
-  void cell::reset_strand() {
+  void
+  cell::init()
+  {
+    try
+    {
+      if (holder_.empty())
+        factory_->populate_member(*this);
+    } catch (const std::exception& e)
+    {
+      ECTO_TRACE_EXCEPTION("const std::exception&");
+      BOOST_THROW_EXCEPTION(
+          except::CellException() << except::when("Construction") << except::type(name_of(typeid(e))) << except::cell_name(name()) << except::what(e.what()));
+    } catch (...)
+    {
+      ECTO_TRACE_EXCEPTION("...");
+      BOOST_THROW_EXCEPTION(
+          except::CellException() << except::when("Construction") << except::what("(unknown exception)") << except::cell_name(name()));
+    }
+  }
+
+  void
+  cell::reset_strand()
+  {
     ECTO_LOG_DEBUG("reset_strand (%p)", 0);
     strand_.reset();
   }
 
-  void cell::set_strand(ecto::strand s) {
+  void
+  cell::set_strand(ecto::strand s)
+  {
     ECTO_LOG_DEBUG("set_strand id=%p", s.id());
     strand_ = s;
   }
 
-  std::size_t cell::tick() const
+  std::size_t
+  cell::tick() const
   {
     return tick_;
   }
 
-  void cell::inc_tick()
+  void
+  cell::inc_tick()
   {
     ++tick_;
   }
-  void cell::reset_tick()
+  void
+  cell::reset_tick()
   {
     tick_ = 0;
-    tendrils::iterator it = inputs.begin(), end=inputs.end();
-    while(it != end)
+    tendrils::iterator it = inputs.begin(), end = inputs.end();
+    while (it != end)
       if (it->second)
         (it++)->second->tick = 0;
     it = outputs.begin();
     end = outputs.end();
-    while(it != end)
+    while (it != end)
       if (it->second)
         (it++)->second->tick = 0;
 

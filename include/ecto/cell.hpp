@@ -28,10 +28,12 @@
  */
 #pragma once
 
-
 #include <boost/shared_ptr.hpp>
 #include <boost/noncopyable.hpp>
 #include <boost/optional.hpp>
+#include <boost/any.hpp>
+#include <boost/bind.hpp>
+#include <boost/function.hpp>
 
 #include <ecto/forward.hpp>
 #include <ecto/tendril.hpp>
@@ -54,7 +56,8 @@ namespace ecto
     QUIT = 1, //!< Explicit quit now.
     BREAK = 2, //!< Stop execution in my scope, jump to outer scope
     CONTINUE = 3, //!< Stop execution in my scope, jump to top of scope
-    UNKNOWN = -1 //!< Unknown return code.
+    UNKNOWN = -1
+  //!< Unknown return code.
   };
 
 #define ECTO_RETURN_VALUES                                                \
@@ -62,6 +65,52 @@ namespace ecto
 
   const std::string&
   ReturnCodeToStr(int rval);
+
+  struct cell_factory;
+  struct sigs
+  {
+    typedef void
+    declare_params(tendrils&);
+    typedef void
+    declare_io(const tendrils&, tendrils&, tendrils&);
+    typedef void
+    configure(const tendrils&, const tendrils&, const tendrils&);
+    typedef int
+    process(const tendrils&, const tendrils&);
+    typedef void
+    start(void);
+    typedef void
+    stop(void);
+
+    typedef boost::function<declare_params> fn_declare_params;
+    typedef boost::function<declare_io> fn_declare_io;
+    typedef boost::function<configure> fn_configure;
+    typedef boost::function<process> fn_process;
+    typedef boost::function<start> fn_start;
+    typedef boost::function<stop> fn_stop;
+
+#define REG_DECLARE_GET_F(FncName)                                             \
+    struct get_f_##FncName##_                                                  \
+    {                                                                          \
+      template<class U,typename Sig>                                           \
+      static boost::function<Sig> has_f(__decltype(&U::FncName))               \
+          {return boost::function<Sig>(&U::FncName);}                          \
+      template<class U,typename Sig>                                           \
+      static boost::function<Sig> has_f(...)                                   \
+          {return boost::function<Sig>();}                                     \
+    }
+
+#define REG_GET_F(Type,FncName,Signature)                                      \
+    ecto::sigs::get_f_##FncName##_::has_f<Type,Signature>(0)
+
+    REG_DECLARE_GET_F(declare_params); //
+    REG_DECLARE_GET_F(declare_io); //
+    REG_DECLARE_GET_F(configure); //
+    REG_DECLARE_GET_F(process); //
+    REG_DECLARE_GET_F(start); //
+    REG_DECLARE_GET_F(stop);
+    //
+  };
 
   /**
    * \brief ecto::cell is the non virtual interface to the basic building
@@ -76,16 +125,16 @@ namespace ecto
    * @code
    struct MyEctoCell
    {
-     //called first thing, the user should declare their parameters in this
-     //free standing function.
-     static void declare_params(tendrils& params);
-     //declare inputs and outputs here. The parameters may be used to
-     //determine the io
-     static void declare_io(const tendrils& params, tendrils& in, tendrils& out);
-     //called right after allocation of the cell, exactly once.
-     void configure(tendrils& params, tendrils& inputs, tendrils& outputs);
-     //called at every execution of the graph
-     int process(const tendrils& in, tendrils& out);
+   //called first thing, the user should declare their parameters in this
+   //free standing function.
+   static void declare_params(tendrils& params);
+   //declare inputs and outputs here. The parameters may be used to
+   //determine the io
+   static void declare_io(const tendrils& params, tendrils& in, tendrils& out);
+   //called right after allocation of the cell, exactly once.
+   void configure(tendrils& params, tendrils& inputs, tendrils& outputs);
+   //called at every execution of the graph
+   int process(const tendrils& in, tendrils& out);
    };
    * @endcode
    *
@@ -96,37 +145,41 @@ namespace ecto
   {
     typedef boost::shared_ptr<cell> ptr; //!< A convenience pointer typedef
 
-    cell();
-    virtual ~cell();
+    cell(const cell_factory* factory);
 
     /**
      * \brief Dispatches parameter declaration code. After this code, the parameters
      * for the cell will be set to their defaults.
      */
-    void declare_params();
+    void
+    declare_params();
     /**
      * \brief Dispatches input/output declaration code.  It is assumed that the parameters
      * have been declared before this is called, so that inputs and outputs may be dependent
      * on those parameters.
      */
-    void declare_io();
+    void
+    declare_io();
 
     /**
      * \brief Given initialized parameters,inputs, and outputs, this will dispatch the client
      * configuration code.  This will allocated an instace of the clients cell, so this
      * should not be called during introspection.
      */
-    void configure();
+    void
+    configure();
 
     /**
-       scheduler is going to call process() zero or more times.
+     scheduler is going to call process() zero or more times.
      */
-    void start();
+    void
+    start();
 
     /**
-       scheduler is not going to call process() for a while.
+     scheduler is not going to call process() for a while.
      */
-    void stop();
+    void
+    stop();
 
     /**
      * \brief Dispatches the process function for the client cell.  This should only
@@ -137,37 +190,45 @@ namespace ecto
      * @return A return code, ecto::OK , or 0 means all is ok. Anything non zero should be considered an
      * exit signal.
      */
-    ReturnCode process();
+    ReturnCode
+    process();
 
     /**
      * \brief Return the type of the child class.
      * @return A human readable non mangled name for the client class.
      */
-    std::string type() const;
+    const std::string&
+    type() const;
 
     /**
      * \brief Grab the name of the instance.
      * @return The name of the instance, or the address if none was given when object was constructed
      */
-    std::string name() const;
+    std::string
+    name() const;
 
     /**
      * \brief Set the name of the instance.
      */
-    void name(const std::string&);
+    void
+    name(const std::string&);
 
     /**
      * \brief Set the short_doc_ of the instance.
      */
-    std::string short_doc() const;
+    std::string
+    short_doc() const;
 
     /**
      * \brief Set the short_doc_ of the instance.
      */
-    void short_doc(const std::string&);
+    void
+    short_doc(const std::string&);
 
-    void reset_strand();
-    void set_strand(ecto::strand);
+    void
+    reset_strand();
+    void
+    set_strand(ecto::strand);
 
     /**
      * \brief Generate an Restructured Text doc string for the cell. Includes documentation for all parameters,
@@ -175,12 +236,16 @@ namespace ecto
      * @param doc The highest level documentation for the cell.
      * @return A nicely formatted doc string.
      */
-    std::string gen_doc(const std::string& doc = "A module...") const;
+    std::string
+    gen_doc(const std::string& doc = "A module...") const;
 
-    void verify_params() const;
-    void verify_inputs() const;
+    void
+    verify_params() const;
+    void
+    verify_inputs() const;
 
-    ptr clone() const;
+    ptr
+    clone() const;
 
     tendrils parameters; //!< Parameters
     tendrils inputs; //!< Inputs, inboxes, always have a valid value ( may be NULL )
@@ -189,335 +254,183 @@ namespace ecto
     boost::optional<strand> strand_; //!< The strand that this cell should be executed in.
     profile::stats_type stats; //!< For collecting execution statistics for process.
 
-    virtual bool init() = 0;
+    std::size_t
+    tick() const;
+    void
+    inc_tick();
+    void
+    reset_tick();
 
-    std::size_t tick() const;
-    void inc_tick();
-    void reset_tick();
-
-    bool stop_requested() const { return stop_requested_; }
-    void stop_requested(bool b) { stop_requested_ = b; }
-
-    boost::signals2::signal<void(cell&, bool)> bsig_process;
-
-  protected:
-
-    virtual void dispatch_declare_params(tendrils& t) = 0;
-
-    virtual void dispatch_declare_io(const tendrils& params, tendrils& inputs,
-                                     tendrils& outputs) = 0;
-
-    virtual void dispatch_configure(const tendrils& params, const tendrils& inputs,
-                                    const tendrils& outputs) = 0;
-
-    virtual ReturnCode dispatch_process(const tendrils& inputs, const tendrils& outputs) = 0;
-
-    virtual void dispatch_start() = 0;
-    virtual void dispatch_stop() = 0;
-
-    virtual std::string dispatch_name() const = 0;
-
-    virtual ptr dispatch_clone() const = 0;
-
-    virtual std::string dispatch_short_doc() const
+    bool
+    stop_requested() const
     {
-      return "";
+      return stop_requested_;
+    }
+    void
+    stop_requested(bool b)
+    {
+      stop_requested_ = b;
     }
 
-    virtual void dispatch_short_doc(const std::string&) { }
+    boost::signals2::signal<void
+    (cell&, bool)> bsig_process;
 
   private:
-
-    cell(const cell&);
-
+    void
+    init();
     std::string instance_name_;
+    std::string short_doc_;
     bool stop_requested_;
     bool configured;
     std::size_t tick_;
     boost::mutex mtx;
+
 #if defined(ECTO_STRESS_TEST)
     boost::mutex process_mtx;
 #endif
 
     friend struct ecto::schedulers::access;
-  };
-
-
-  /**
-   * \brief Helper class for determining if client modules have function
-   * implementations or not.
-   * @internal
-   */
-  template<class T>
-  struct has_f
-  {
-    typedef char yes;
-    typedef char (&no)[2];
-
-    // SFINAE eliminates this when the type of arg is invalid
-    // overload resolution prefers anything at all over "..."
-    template<class U>
-    static yes test_declare_params(__typeof__(&U::declare_params));
-    template<class U>
-    static no test_declare_params(...);
-    enum
-    {
-      declare_params = sizeof(test_declare_params<T> (0)) == sizeof(yes)
-    };
-
-    template<class U>
-    static yes test_declare_io(__typeof__(&U::declare_io));
-    template<class U>
-    static no test_declare_io(...);
-    enum
-    {
-      declare_io = sizeof(test_declare_io<T> (0)) == sizeof(yes)
-    };
-
-    template<class U>
-    static yes test_configure(__typeof__(&U::configure));
-    template<class U>
-    static no test_configure(...);
-    enum
-    {
-      configure = sizeof(test_configure<T> (0)) == sizeof(yes)
-    };
-
-    template<class U>
-    static yes test_process(__typeof__(&U::process));
-    template<class U>
-    static no test_process(...);
-    enum
-    {
-      process = sizeof(test_process<T> (0)) == sizeof(yes)
-    };
-
-    template<class U>
-    static yes test_start(__typeof__(&U::start));
-    template<class U>
-    static no test_start(...);
-    enum
-    {
-      start = sizeof(test_start<T> (0)) == sizeof(yes)
-    };
-
-    template<class U>
-    static yes test_stop(__typeof__(&U::stop));
-    template<class U>
-    static no test_stop(...);
-    enum
-    {
-      stop = sizeof(test_stop<T> (0)) == sizeof(yes)
-    };
-  };
-
-  /**
-   * \brief cell_<T> is for registering an arbitrary class
-   * with the the cell NVI. This adds a barrier between client code and the cell.
-   */
-  template<class Impl>
-  struct cell_: cell
-  {
-    typedef boost::shared_ptr<cell_<Impl> > ptr;
-
-    typedef typename detail::python_mutex<Impl>::type gil_mtx_t;
-
-    cell_() {
-      init_strand(typename ecto::detail::is_threadsafe<Impl>::type());
-    }
-
-    ~cell_() { }
-    template <int I> struct int_ { };
-    typedef int_<0> not_implemented;
-    typedef int_<1> implemented;
-
-    //
-    // declare_params
-    //
-    typedef int_<has_f<Impl>::declare_params> has_declare_params;
-
-    static void declare_params(tendrils& params, not_implemented) { }
-
-    static void declare_params(tendrils& params, implemented)
-    {
-      Impl::declare_params(params);
-    }
-
-    static void declare_params(tendrils& params)
-    {
-      declare_params(params, has_declare_params());
-    }
-
-    void dispatch_declare_params(tendrils& params)
-    {
-      declare_params(params);
-    }
-
-
-    //
-    // declare_io
-    //
-    static void declare_io(const tendrils& params, tendrils& inputs, tendrils& outputs, not_implemented)
-    { }
-
-    static void declare_io(const tendrils& params, tendrils& inputs, tendrils& outputs, implemented)
-    {
-      Impl::declare_io(params, inputs, outputs);
-    }
-
-    typedef int_<has_f<Impl>::declare_io> has_declare_io;
-
-    static void declare_io(const tendrils& params, tendrils& inputs, tendrils& outputs)
-    {
-      declare_io(params, inputs, outputs, has_declare_io());
-    }
-
-    void dispatch_declare_io(const tendrils& params, tendrils& inputs,
-                             tendrils& outputs)
-    {
-      declare_io(params, inputs, outputs);
-    }
-
-    //
-    // configure
-    //
-    void configure(const tendrils&, const tendrils& , const tendrils&, not_implemented)
-    {
-    }
-
-    void configure(const tendrils& params, const tendrils& inputs, const tendrils& outputs,
-                   implemented)
-    {
-      impl->configure(params,inputs,outputs);
-    }
-
-    void dispatch_configure(const tendrils& params, const tendrils& inputs,
-                            const tendrils& outputs)
-    {
-      configure(params, inputs, outputs, int_<has_f<Impl>::configure> ());
-    }
-
-    //
-    // process
-    //
-    ReturnCode process(const tendrils&, const tendrils&, not_implemented)
-    {
-      return OK;
-    }
-
-    ReturnCode process(const tendrils& inputs, const tendrils& outputs, implemented)
-    {
-      return ReturnCode(impl->process(inputs, outputs));
-    }
-
-    ReturnCode dispatch_process(const tendrils& inputs, const tendrils& outputs)
-    {
-      return process(inputs, outputs, int_<has_f<Impl>::process> ());
-    }
-
-    //
-    // start
-    //
-    void start(not_implemented) { }
-    void start(implemented) { impl->start(); }
-    void dispatch_start()
-    {
-      start(int_<has_f<Impl>::start> ());
-    }
-
-    //
-    // stop
-    //
-    void stop(not_implemented) { }
-    void stop(implemented) { impl->stop(); }
-    void dispatch_stop()
-    {
-      stop(int_<has_f<Impl>::stop> ());
-    }
-
-    std::string dispatch_name() const
-    {
-      return CELL_TYPE_NAME;
-    }
-    std::string dispatch_short_doc() const
-    {
-      return SHORT_DOC;
-    }
-
-    void dispatch_short_doc(const std::string&) { }
-
-    cell::ptr dispatch_clone() const
-    {
-      return cell::ptr(new cell_<Impl> ());
-    }
-
-    bool init()
-    {
-      try {
-        if(!impl)
-        {
-          impl.reset(new Impl);
-          Impl* i=impl.get();
-          //these handle finalizing the registration of spores that
-          //were registered at static time.
-          parameters.realize_potential(i);
-          inputs.realize_potential(i);
-          outputs.realize_potential(i);
-        }
-        return impl;
-      }
-      catch (const std::exception& e)
-      {
-        ECTO_TRACE_EXCEPTION("const std::exception&");
-        BOOST_THROW_EXCEPTION(except::CellException()
-                              << except::when("Construction")
-                              << except::type(name_of(typeid(e)))
-                              << except::cell_name(name())
-                              << except::what(e.what()));
-      }
-      catch (...)
-      {
-        ECTO_TRACE_EXCEPTION("...");
-        BOOST_THROW_EXCEPTION(except::CellException()
-                              << except::when("Construction")
-                              << except::what("(unknown exception)")
-                              << except::cell_name(name()));
-      }
-    }
-
   public:
-
-    boost::shared_ptr<Impl> impl;
-    static std::string SHORT_DOC;
-    static std::string CELL_NAME; //!< The python name for the cell.
-    static std::string MODULE_NAME; //!< The module that the cell is part of.
-    static const std::string CELL_TYPE_NAME;
-
-  private:
-
-    void init_strand(boost::mpl::true_)
-    {
-    } // threadsafe
-
-    void init_strand(boost::mpl::false_) {
-      static ecto::strand strand_;
-      cell::strand_ = strand_;
-      ECTO_ASSERT(cell::strand_->id() == strand_.id(), "Catastrophe... cells not correctly assignable");
-      ECTO_LOG_DEBUG("%s cell has strand id=%p", cell::type() % cell::strand_->id());
-    }
+    const cell_factory* factory_;
+    boost::any holder_;
+    sigs::fn_declare_params declare_params_;
+    sigs::fn_declare_io declare_io_;
+    sigs::fn_configure configure_;
+    sigs::fn_process process_;
+    sigs::fn_start start_;
+    sigs::fn_stop stop_;
   };
 
-  template<typename Impl>
-  std::string cell_<Impl>::SHORT_DOC;
+  struct cell_factory
+  {
+    virtual
+    ~cell_factory();
 
-  template<typename Impl>
-  std::string cell_<Impl>::CELL_NAME;
+    boost::shared_ptr<cell>
+    create() const;
 
-  template<typename Impl>
-  std::string cell_<Impl>::MODULE_NAME;
+    virtual
+    void
+    populate_member(cell& c) const = 0;
 
-  template<typename Impl>
-  const std::string cell_<Impl>::CELL_TYPE_NAME = ecto::name_of<Impl>();
+    virtual
+    void
+    populate_static(cell& c) const = 0;
+
+    virtual const std::string&
+    type() const = 0;
+
+    virtual const char* name() const = 0;
+    virtual const char* docstring() const = 0;
+  };
+
+  template<class CellT>
+  struct cell_factory_: cell_factory
+  {
+    typedef boost::shared_ptr<CellT> PtrT;
+
+    //static functions.
+    sigs::fn_declare_params declare_params;
+    sigs::fn_declare_io declare_io;
+
+    //member functions, have different signatures...
+    //these must be handled with boost::bind
+    typedef void
+    sig_configure(CellT*, const tendrils&, const tendrils&, const tendrils&);
+    typedef int
+    sig_process(CellT*, const tendrils&, const tendrils&);
+    typedef void
+    sig_start(CellT*);
+    typedef void
+    sig_stop(CellT*);
+    boost::function<sig_configure> configure;
+    boost::function<sig_process> process;
+    boost::function<sig_start> start;
+    boost::function<sig_stop> stop;
+    mutable const char* name_;
+    mutable const char* docstring_;
+
+    cell_factory_()
+        :
+          declare_params(REG_GET_F(CellT,declare_params,sigs::declare_params)),
+          declare_io(REG_GET_F(CellT,declare_io,sigs::declare_io)),
+          configure(REG_GET_F(CellT,configure,sig_configure)),
+          process(REG_GET_F(CellT,process,sig_process)),
+          start(REG_GET_F(CellT,start,sig_start)),
+          stop(REG_GET_F(CellT,stop,sig_stop)),
+          name_(name_of<CellT>().c_str()),
+          docstring_("No docs...")
+    {
+    }
+
+    void
+    populate_member(cell& c) const
+    {
+      PtrT p;
+      p.reset(new CellT);
+
+      //these handle finalizing the registration of spores that
+      //were registered at static time.
+
+      c.holder_ = p;
+      c.parameters.realize_potential(p.get());
+      c.inputs.realize_potential(p.get());
+      c.outputs.realize_potential(p.get());
+      if (configure)
+        c.configure_ = boost::bind(configure, p.get(), _1, _2, _3);
+      if (process)
+        c.process_ = boost::bind(process, p.get(), _1, _2);
+      if (stop)
+        c.stop_ = boost::bind(stop, p.get());
+      if (start)
+        c.start_ = boost::bind(start, p.get());
+    }
+
+    void
+    populate_static(cell& c) const
+    {
+      if(!typename ecto::detail::is_threadsafe<CellT>::type())
+      {
+        static ecto::strand strand_;
+        c.strand_ = strand_;
+        ECTO_LOG_DEBUG("%s cell has strand id=%p", c.type() % c.strand_->id());
+      }
+      c.declare_params_ = declare_params;
+      c.declare_io_ = declare_io;
+    }
+
+    static PtrT
+    extract(cell& c)
+    {
+      return boost::any_cast<PtrT>(c.holder_);
+    }
+
+    static cell_ptr
+    create()
+    {
+      return instance()->create();
+    }
+
+    static const cell_factory*
+    instance()
+    {
+      static cell_factory_ cf;
+      return &cf;
+    }
+    const std::string&
+    type() const
+    {
+      return name_of<CellT>();
+    }
+    const char* name() const
+    {
+      return name_;
+    }
+    const char* docstring() const
+    {
+      return docstring_;
+    }
+  };
 
 }//namespace ecto
 

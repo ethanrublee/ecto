@@ -49,7 +49,7 @@ namespace {
 }
 TEST(Static, DoesItWork)
 {
-  ecto::cell::ptr a(new cell_<Add>);
+  ecto::cell::ptr a(cell_factory_<Add>::create());
   a->declare_params();
   a->declare_io();
   a->inputs["left"] << 2.0;

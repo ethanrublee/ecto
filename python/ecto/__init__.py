@@ -48,12 +48,10 @@ def cellinit(cpptype):
         if len(args) > 1:
             raise RuntimeError("Too many positional args:  only one allowed, representing cell instance name")
         e = lookup(cpptype)
-        c = self.__impl = e.construct()
+        c = self.__impl = e.create()
         if len(args) == 1:
             self.__impl.name(args[0])
-        e.declare_params(self.__impl.params)
-        # c.construct(args, kwargs)
-        #print "c=", c
+        c.declare_params()
         self.inputs = c.inputs
         self.outputs = c.outputs
         self.params = c.params
@@ -64,14 +62,12 @@ def cellinit(cpptype):
                 setattr(self.params, k, v.__impl)
             else:
                 setattr(self.params, k, v)
-            # print "now:", getattr(self.params, k)
-        e.declare_io(self.params, self.inputs, self.outputs)
+        c.declare_io()
         try:
             self.__impl.verify_params()
         except ecto.EctoException as e:
             print >>sys.stderr, cpptype
             raise type(e)('\nCell Type: %s\nCell Name: %s\nWhat:\n%s'%(cpptype,self.__impl.name(),str(e)))
-    # self.params.get('k') = v
     return impl
 
 def cell_print_tendrils(tendril):
@@ -130,7 +126,7 @@ def cell_doc(short_doc, c):
 
 def postregister(cellname, cpptypename, short_doc, inmodule):
     e = lookup(cpptypename)
-    c = e.construct()
+    c = e.create()
     c.declare_params()
     c.declare_io()
 
@@ -149,7 +145,7 @@ def postregister(cellname, cpptypename, short_doc, inmodule):
                          configure = cell_configure,
                          name = cell_name,
                          type_name = cell_typename,
-                         __factory = e.construct,
+                         __factory = e.create,
                          __looks_like_a_cell__ = True
                          ))
 

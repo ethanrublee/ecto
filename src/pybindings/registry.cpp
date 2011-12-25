@@ -36,13 +36,13 @@ namespace ecto {
 
     void wrapRegistry()
     {
-      bp::class_<ecto::registry::entry_t>("registry_entry")
-        .def("construct", &ecto::registry::entry_t::construct_)
-        .def("declare_params", &ecto::registry::entry_t::declare_params_)
-        .def("declare_io", &ecto::registry::entry_t::declare_io_)
+      bp::class_<ecto::cell_factory,boost::noncopyable>("registry_entry",bp::no_init)
+        .def("create", &ecto::cell_factory::create)
+        //.def("declare_params", &ecto::registry::entry_t::declare_params_)
+        //.def("declare_io", &ecto::registry::entry_t::declare_io_)
         ;
 
-      bp::def("lookup", &ecto::registry::lookup);
+      bp::def("lookup", &ecto::registry::lookup, bp::return_internal_reference<>());
     }
   }
 }

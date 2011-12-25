@@ -47,15 +47,15 @@ namespace ecto {
     boost::shared_ptr<cell> create(const std::string& name)
     {
       entry_t e = lookup(name);
-      return e.construct();
+      return e->create();
     }
 
     boost::shared_ptr<cell> create_initialized(const std::string& name)
     {
       entry_t e = lookup(name);
-      cell_ptr cp = e.construct();
-      e.declare_params(cp->parameters);
-      e.declare_io(cp->parameters, cp->inputs, cp->outputs);
+      cell_ptr cp = e->create();
+      cp->declare_params();
+      cp->declare_io();
       return cp;
     }
 
@@ -83,8 +83,6 @@ namespace ecto {
       bp::object pr = dict__["postregister"];
       pr(name, cpp_typename, docstr, bp::scope());
     }
-                   
-
   }
 
 }

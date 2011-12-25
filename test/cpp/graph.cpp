@@ -66,7 +66,7 @@ namespace {
 TEST(Plasm, Viz)
 {
   ecto::plasm p;
-  ecto::cell::ptr m1(new ecto::cell_<Module1>), m2(new ecto::cell_<Module2>);
+  ecto::cell::ptr m1(cell_factory_<Module1>::create()), m2(cell_factory_<Module2>::create());
   m1->declare_params();
   m1->declare_io();
   m2->declare_params();
@@ -78,9 +78,9 @@ TEST(Plasm, Viz)
 TEST(Plasm, Passthrough)
 {
   ecto::plasm::ptr p(new ecto::plasm);
-  ecto::cell::ptr m1(new cell_<Module1>), 
-    m2(new cell_<Module2>), 
-    pass(new cell_<Passthrough>);
+  ecto::cell::ptr m1(cell_factory_<Module1>::create()),
+    m2(cell_factory_<Module2>::create()),
+    pass(cell_factory_<Passthrough>::create());
   m1->declare_params();
   m2->declare_params();
   pass->declare_params();
@@ -103,8 +103,9 @@ TEST(Plasm, Registry)
 {
   ecto::cell::ptr add = ecto::registry::create("ecto_test::Add");
   EXPECT_TRUE(add);
-  std::cout << add->name() << std::endl;
-  EXPECT_EQ("ecto_test::Add", add->name());
+  EXPECT_EQ("ecto_test::Add", add->type());
+  EXPECT_EQ("Add", add->name());
+
 }
 
 
