@@ -161,7 +161,6 @@ if platform.system().startswith('freebsd'):
         # http://mail.python.org/pipermail/python-dev/2002-May/024074.html
         sys.setdlopenflags(0x102)
 
-
 def load_pybindings(name, path):
     """
     Merges python bindings from shared library 'name' into module 'name'.
